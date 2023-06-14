@@ -48,7 +48,7 @@ An example for optimizing a simple function (i.e., sphere function) on a local c
 
     > cd sphere
     > ls
-    config.yaml         user.py
+    config.yaml         job_script_preamble.sh         user.py
     ~~~
 
 3. Run the parameter optimization
@@ -72,6 +72,7 @@ An example for optimizing a simple function (i.e., sphere function) on a local c
     > ls ./work
     abci_output         alive               hp                  lock
     log                 result              runner              state
+    verification
 
     > cat ./work/result/final_result.result
     ~~~
@@ -86,7 +87,8 @@ This tutorial describes how to run examples/sphere on ABCI.
 
 1. First, setup python environment following [the ABCI Users Guide](https://docs.abci.ai/en/python/):
     ~~~bash
-    > module load python/3.11/3.11.2
+    > module load gcc/11.2.0
+    > module load python/3.8/3.8.13
     > python3 -m venv optenv
     > source optenv/bin/activate
     ~~~
@@ -96,8 +98,8 @@ This tutorial describes how to run examples/sphere on ABCI.
 3. Please confirm the configuration file before running master.
     ```yaml
     resource:
-        type: "abci"
-        num_workers: 4
+        type: "ABCI"
+        num_node: 4
     ```
 
 4. Run on an (interactive) job

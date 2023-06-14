@@ -8,7 +8,6 @@ import pytest
 from aiaccel.master import AbciMaster
 from tests.arguments import parse_arguments
 from tests.base_test import BaseTest
-from aiaccel.config import load_config
 
 
 def callback_qstat(fake_process):
@@ -22,12 +21,33 @@ def callback_return():
 
 class TestAbciMaster(BaseTest):
 
+    def get_confit_path(self):
+        config_path = str(self.config_json).split("/")
+        config_path.pop(-1)
+        config_path.append("config_abci.json")
+        config_path = str(pathlib.Path("/".join(config_path)))
+        return config_path
+
     @pytest.fixture(autouse=True)
-    def setup_master(self, clean_work_dir):
+    def setup_master(self, create_tmp_config):
+        self.config_path = self.test_data_dir.joinpath('config_abci.json')
+        self.config_path = create_tmp_config(self.config_path)
+
         self.workspace.clean()
         self.workspace.create()
 
-        self.master = AbciMaster(self.load_config_for_test(self.configs["config_abci_json"]))
+        commandline_args = [
+            "start.py",
+            "--config",
+            str(self.config_path)
+        ]
+
+        with patch.object(sys, 'argv', commandline_args):
+            # from aiaccel import start
+            # self.master = start.Master()
+            options = parse_arguments()
+            # self.master = create_master(options['config'])(options)
+            self.master = AbciMaster(options)
 
         yield
         self.master = None
@@ -38,8 +58,14 @@ class TestAbciMaster(BaseTest):
         database_remove
     ):
         database_remove()
-
-        master = AbciMaster(self.load_config_for_test(self.configs["config_abci_json"]))
+        commandline_args = [
+            "start.py",
+            "--config",
+            str(self.config_path)
+        ]
+        with patch.object(sys, 'argv', commandline_args):
+            options = parse_arguments()
+            master = AbciMaster(options)
         master.pre_process()
         assert type(master.runner_files) is list
 
@@ -51,8 +77,14 @@ class TestAbciMaster(BaseTest):
         database_remove
     ):
         database_remove()
-
-        master = AbciMaster(self.load_config_for_test(self.configs["config_abci_json"]))
+        commandline_args = [
+            "start.py",
+            "--config",
+            str(self.config_path)
+        ]
+        with patch.object(sys, 'argv', commandline_args):
+            options = parse_arguments()
+            master = AbciMaster(options)
 
         xml_path = data_dir.joinpath('qstat.xml')
         fake_process.register_subprocess(

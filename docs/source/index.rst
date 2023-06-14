@@ -31,7 +31,6 @@ aiaccelドキュメント
 
    examples/prepare_files.md
    examples/local_random.md
-   examples/local_budget_specified_grid_optimizer.md
    examples/local_grid.md
    examples/python_local_tpe.md
    examples/abci_sobol.md

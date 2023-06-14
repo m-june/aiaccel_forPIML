@@ -1,20 +1,20 @@
-import json
+import tempfile
 import os
 import shutil
-import tempfile
 from pathlib import Path
 
 import fasteners
 import pytest
-
-from aiaccel.config import load_config
+from aiaccel.config import Config, load_config
 from aiaccel.storage import Storage
-from aiaccel.util import create_yaml, interprocess_lock_file, load_yaml
-from aiaccel.workspace import Workspace
+from aiaccel.util import create_yaml
+from aiaccel.util import load_yaml
+from aiaccel.util import interprocess_lock_file
+import json
 
 WORK_SUB_DIRECTORIES = [
     'abci_output', 'alive', 'hp', 'hp/finished', 'hp/ready', 'hp/running',
-    'lock', 'log', 'resource', 'result', 'runner', 'state'
+    'lock', 'log', 'resource', 'result', 'runner', 'state', 'verification'
 ]
 WORK_FILES = [
     'config.json',
@@ -23,7 +23,7 @@ WORK_FILES = [
     'original_main.py',
     'wrapper.py',
     'wrapper_abci.sh',
-    'config_grid.json'
+    'grid_config.json'
 ]
 
 
@@ -96,7 +96,7 @@ def config_json(data_dir):
 
 @pytest.fixture(scope="session")
 def grid_config_json(data_dir):
-    return data_dir.joinpath('config_grid.json')
+    return data_dir.joinpath('grid_config.json')
 
 
 @pytest.fixture
@@ -122,7 +122,7 @@ def get_one_parameter(work_dir):
 def load_test_config(config_json):
 
     def _load_test_config():
-        return load_config(config_json)
+        return Config(config_json)
 
     return _load_test_config
 
@@ -140,7 +140,7 @@ def load_test_config_org(config_json):
 def grid_load_test_config(grid_config_json):
 
     def _load_test_config():
-        return load_config(grid_config_json)
+        return Config(grid_config_json)
 
     return _load_test_config
 
@@ -167,22 +167,19 @@ def create_tmp_config(data_dir, tmpdir, work_dir):
     def _create_tmp_config(conf_path=None):
         if conf_path is None:
             conf_path = data_dir.joinpath('config.yaml')
-        conf_path.name
+
         if conf_path.suffix == ".yaml" or conf_path.suffix == ".yml":
             yml = load_yaml(conf_path)
             yml['generic']['workspace'] = str(work_dir)
-            tmp_conf_path = tmpdir.joinpath(conf_path.name)
+            tmp_conf_path = tmpdir.joinpath('config.yaml')
             create_yaml(tmp_conf_path, yml)
         elif conf_path.suffix == ".json":
             with open(conf_path, 'r') as f:
                 json_obj = json.load(f)
                 json_obj['generic']['workspace'] = str(work_dir)
-                tmp_conf_path = tmpdir.joinpath(conf_path.name)
+                tmp_conf_path = tmpdir.joinpath('config.json')
             with open(tmp_conf_path, 'w') as f:
                 json.dump(json_obj, f)
-
-        workspace = Workspace(str(work_dir))
-        workspace.create()
 
         return tmp_conf_path
 
@@ -203,8 +200,8 @@ def setup_hp_files(work_dir):
         #         data_dir.joinpath('work/hp/finished/{:03}.hp'.format(i)),
         #         work_dir.joinpath('hp/{}/{:03}.hp'.format(hp_type, i))
         #     )
-        workspace = Workspace(str(work_dir))
-        storage = Storage(workspace.storage_file_path)
+
+        storage = Storage(work_dir)
         for i in range(n):
             storage.trial.set_any_trial_state(trial_id=i, state=hp_type)
     return _setup_hp_files
@@ -237,11 +234,12 @@ def setup_hp_finished(setup_hp_files):
 @pytest.fixture(scope="session")
 def setup_result(work_dir):
     def _setup_result(n=1):
-        workspace = Workspace(str(work_dir))
-        storage = Storage(workspace.storage_file_path)
+        storage = Storage(work_dir)
         running = storage.get_running()
+        print('dbg')
+        print(running)
         for trial_id in running:
-            storage.result.set_any_trial_objective(trial_id=trial_id, objective=[0])
+            storage.result.set_any_trial_objective(trial_id=trial_id, objective=0)
 
     return _setup_result
 
@@ -249,9 +247,9 @@ def setup_result(work_dir):
 @pytest.fixture(scope="session")
 def database_remove(work_dir):
     def _database_remove():
-        workspace = Workspace(str(work_dir))
-        if workspace.storage_file_path.exists():
-            workspace.storage_file_path.unlink()
+        p = work_dir / 'storage' / 'storage.db'
+        if p.exists():
+            p.unlink()
     return _database_remove
 
 

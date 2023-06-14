@@ -1,4 +1,5 @@
 from aiaccel.scheduler import AbciScheduler
+from aiaccel.scheduler import AbciModel
 
 from tests.base_test import BaseTest
 
@@ -14,7 +15,14 @@ class TestAbciScheduler(BaseTest):
         database_remove
     ):
         database_remove()
-        scheduler = AbciScheduler(self.load_config_for_test(self.configs["config.json"]))
+        options = {
+            'config': self.config_json,
+            'resume': None,
+            'clean': False,
+            'fs': False,
+            'process_name': 'scheduler'
+        }
+        scheduler = AbciScheduler(options)
         xml_path = data_dir.joinpath('qstat.xml')
         fake_process.register_subprocess(['qstat', '-xml'], stdout=[])
         assert scheduler.get_stats() is None
@@ -34,7 +42,14 @@ class TestAbciScheduler(BaseTest):
         database_remove
     ):
         database_remove()
-        scheduler = AbciScheduler(self.load_config_for_test(self.configs["config.json"]))
+        options = {
+            'config': self.config_json,
+            'resume': None,
+            'clean': False,
+            'fs': False,
+            'process_name': 'scheduler'
+        }
+        scheduler = AbciScheduler(options)
         s = {"name": "run_000005.sh"}
         trial_id = int(scheduler.parse_trial_id(s['name']))
         assert trial_id == 5
@@ -42,3 +57,14 @@ class TestAbciScheduler(BaseTest):
         s = {"name": "run_xxxxxx.sh"}
         trial_id = scheduler.parse_trial_id(s['name'])
         assert trial_id is None
+
+    def test_create_model(self):
+        options = {
+            'config': self.config_json,
+            'resume': None,
+            'clean': False,
+            'fs': False,
+            'process_name': 'scheduler'
+        }
+        scheduler = AbciScheduler(options)
+        assert type(scheduler.create_model()) is AbciModel

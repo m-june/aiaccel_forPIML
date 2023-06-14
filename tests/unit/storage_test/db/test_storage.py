@@ -1,14 +1,13 @@
-import numpy as np
 from unittest.mock import patch
 
 from aiaccel.storage import Storage
-from tests.unit.storage_test.db.base import get_storage, t_base, ws
+from tests.unit.storage_test.db.base import t_base, ws
 
 
 # set_any_trial_start_time
 @t_base()
 def test_current_max_trial_number():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     assert storage.current_max_trial_number() is None
 
@@ -25,7 +24,7 @@ def test_current_max_trial_number():
 # get_ready
 @t_base()
 def test_get_ready():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -48,7 +47,7 @@ def test_get_ready():
 # get_running
 @t_base()
 def test_get_running():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -71,7 +70,7 @@ def test_get_running():
 # get_finished
 @t_base()
 def test_get_finished():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -94,7 +93,7 @@ def test_get_finished():
 # get_num_ready
 @t_base()
 def test_get_num_ready():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -120,7 +119,7 @@ def test_get_num_ready():
 # get_num_running
 @t_base()
 def test_get_num_running():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -146,7 +145,7 @@ def test_get_num_running():
 # get_num_finished
 @t_base()
 def test_get_num_finished():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -172,7 +171,7 @@ def test_get_num_finished():
 # is_ready
 @t_base()
 def test_is_ready():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -202,7 +201,7 @@ def test_is_ready():
 # is_running
 @t_base()
 def test_is_running():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -232,7 +231,7 @@ def test_is_running():
 # is_finished
 @t_base()
 def test_is_finished():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     states = [
         "ready",
@@ -262,7 +261,7 @@ def test_is_finished():
 # get_hp_dict
 @t_base()
 def test_get_hp_dict():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -310,7 +309,7 @@ def test_get_hp_dict():
 # get_hp_dict
 @t_base()
 def test_get_hp_dict_int():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -357,7 +356,7 @@ def test_get_hp_dict_int():
 
 @t_base()
 def test_get_hp_dict_categorical():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -403,7 +402,7 @@ def test_get_hp_dict_categorical():
 
 @t_base()
 def test_get_hp_dict_invalid_type():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -450,7 +449,7 @@ def test_get_hp_dict_invalid_type():
 # get_result_and_error
 @t_base()
 def test_get_result_and_error():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -472,7 +471,7 @@ def test_get_result_and_error():
 # get_best_trial_dict
 @t_base()
 def test_get_best_trial_dict():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -482,7 +481,7 @@ def test_get_best_trial_dict():
     param_value = 0.1
     param_type = "float"
     error = "aaaa"
-    goals = ["minimize"]
+    goal = "minimize"
 
     storage.result.set_any_trial_objective(
         trial_id=trial_id,
@@ -527,7 +526,7 @@ def test_get_best_trial_dict():
         "error": error
     }
 
-    d = storage.get_best_trial_dict(goals)[0]
+    d = storage.get_best_trial_dict(goal)
 
     for key in d.keys():
         assert exp[key] == d[key]
@@ -536,9 +535,9 @@ def test_get_best_trial_dict():
 # get_best_trial
 @t_base()
 def test_get_best_trial():
-    storage = get_storage()
+    storage = Storage(ws.path)
     trial_ids = [0, 1, 2, 3, 4]
-    objectives = [[0.00], [0.01], [-1], [1], [np.float64(.3)]]
+    objectives = [0.00, 0.01, -1, 1, 0.03]
 
     for i in range(len(trial_ids)):
         storage.result.set_any_trial_objective(
@@ -546,28 +545,20 @@ def test_get_best_trial():
             objective=objectives[i]
         )
 
-    goals = ["minimize"]
-    assert storage.get_best_trial(goals) == ([2], [-1])
+    goal = "minimize"
+    assert storage.get_best_trial(goal) == (2, -1)
 
-    goals = ["maximize"]
-    assert storage.get_best_trial(goals) == ([3], [1])
+    goal = "maximize"
+    assert storage.get_best_trial(goal) == (3, 1)
 
-    goals = ["aaaaaaaaaa"]
-    assert storage.get_best_trial(goals) == (None, None)
-
-    storage.result.set_any_trial_objective(
-        trial_id=2,
-        objective=[None]
-    )
-
-    goals = ["minimize"]
-    assert storage.get_best_trial(goals) == (None, None)
+    goal = "aaaaaaaaaa"
+    assert storage.get_best_trial(goal) == (None, None)
 
 
 # delete_trial_data_after_this
 @t_base()
 def test_delete_trial_data_after_this():
-    storage = get_storage()
+    storage = Storage(ws.path)
     assert storage.delete_trial_data_after_this(trial_id=1) is None
 
     def dummy_delete_trial(trial_id: int) -> None:
@@ -581,14 +572,14 @@ def test_delete_trial_data_after_this():
 # delete_trial
 @t_base()
 def test_delete_trial():
-    storage = get_storage()
+    storage = Storage(ws.path)
     assert storage.delete_trial(trial_id=1) is None
 
 
 # rollback_to_ready
 @t_base()
 def test_rollback_to_ready():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     assert storage.rollback_to_ready(trial_id=1) is None
 

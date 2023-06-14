@@ -1,18 +1,15 @@
-from unittest.mock import MagicMock, patch
-
-import numpy as np
 import pytest
-from sqlalchemy.exc import SQLAlchemyError
 from undecorated import undecorated
+from sqlalchemy.exc import SQLAlchemyError
 
 from aiaccel.storage import Storage
-from tests.unit.storage_test.db.base import init, t_base, ws, get_storage
+from tests.unit.storage_test.db.base import t_base, ws, init
 
 
 # set_any_trial_objective
 @t_base()
 def test_set_any_trial_objective():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -34,7 +31,7 @@ def test_set_any_trial_objective():
 
 @t_base()
 def test_set_any_trial_objective_exception():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -48,36 +45,11 @@ def test_set_any_trial_objective_exception():
             objective=objective
         )
 
-@t_base()
-def test_get_any_trial_objective_and_best_value():
-
-    storage = get_storage()
-
-    # Test when objectives is None
-    trial_id = 1
-    goals = ['minimize']
-    mock_get_any_trial_objective = MagicMock(return_value=None)
-    with patch.object(storage.result, 'get_any_trial_objective', mock_get_any_trial_objective):
-        objectives, best_values = storage.result.get_any_trial_objective_and_best_value(trial_id, goals)
-        assert objectives is None
-        assert best_values is None
-
-    # Test when objectives is not None
-    trial_id = 2
-    goals = ['minimize', 'maximize']
-    mock_get_any_trial_objective = MagicMock(return_value=[0.9, 0.8])
-    mock_get_bests = MagicMock(return_value=[0.95, 0.85])
-    with patch.object(storage.result, 'get_any_trial_objective', mock_get_any_trial_objective):
-        with patch.object(storage.result, 'get_bests', mock_get_bests):
-            objectives, best_values =storage.result.get_any_trial_objective_and_best_value(trial_id, goals)
-            assert objectives == [0.9, 0.8]
-            assert best_values == [0.95, 0.85]
-
 
 # get_any_trial_objective
 @t_base()
 def test_get_any_trial_objective():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     objective = 0.01
@@ -94,7 +66,7 @@ def test_get_any_trial_objective():
 # get_all_result
 @t_base()
 def test_get_all_result():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     objectives = [1, 2, 3, 1.23]
     ids = range(len(objectives))
@@ -106,13 +78,13 @@ def test_get_all_result():
         )
 
     data = storage.result.get_all_result()
-    assert [data[trial_id] for trial_id in data.keys()] == objectives
+    assert [d.objective for d in data] == objectives
 
 
 # get_objectives
 @t_base()
 def test_get_objectives():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     objectives = [1, 2, 3, 1.23]
     ids = range(len(objectives))
@@ -127,10 +99,13 @@ def test_get_objectives():
     assert objectives == data
 
 
+# get_bests
 @t_base()
 def test_get_bests():
-    storage = get_storage()
-    objectives = [[1], [-5], [3], [1.23]]
+    storage = Storage(ws.path)
+    assert storage.result.get_bests('invalid') == []
+
+    objectives = [1, -5, 3, 1.23]
     ids = range(len(objectives))
 
     for i in range(len(objectives)):
@@ -139,22 +114,14 @@ def test_get_bests():
             objective=objectives[i]
         )
 
-    with pytest.raises(ValueError):
-        storage.result.get_bests(['invalid'])
-
-    bests = storage.result.get_bests(['minimize'])
-    for i in range(len(bests)):
-        assert bests[i] == np.min(objectives)
-
-    bests = storage.result.get_bests(['maximize'])
-    for i in range(len(bests)):
-        assert bests[i] == np.max(objectives)
+    assert storage.result.get_bests('minimize') == [1, -5, -5, -5]
+    assert storage.result.get_bests('maximize') == [1, 1, 3, 3]
 
 
 # get_result_trial_id_list
 @t_base()
 def test_get_result_trial_id_list():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     assert storage.result.get_result_trial_id_list() is None
 
@@ -173,7 +140,7 @@ def test_get_result_trial_id_list():
 # all_delete
 @t_base()
 def test_all_delete():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     objectives = [1, 2, 3, 1.23]
     ids = range(len(objectives))
@@ -192,7 +159,7 @@ def test_all_delete():
 # all_delete exception
 @t_base()
 def test_all_delete_exception():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     objectives = [1, 2, 3, 1.23]
     ids = range(len(objectives))
@@ -212,7 +179,7 @@ def test_all_delete_exception():
 # delete_any_trial_objective
 @t_base()
 def test_delete_any_trial_objective():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     ids = [0, 1, 2]
     objectives = [0.01, 0.02, 0.03]
@@ -246,7 +213,7 @@ def test_delete_any_trial_objective():
 # delete_any_trial_objective exception
 @t_base()
 def test_delete_any_trial_objective_exception():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     ids = [0, 1, 2]
     objectives = [0.01, 0.02, 0.03]

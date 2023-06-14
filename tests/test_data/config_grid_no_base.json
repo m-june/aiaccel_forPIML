@@ -2,13 +2,11 @@
   "generic": {
     "workspace": "/tmp/work",
     "job_command": "python original_main.py",
-    "python_file": "original_main.py",
-    "function": "main",
     "batch_job_timeout": 600
   },
   "resource": {
     "type": "local",
-    "num_workers": 10
+    "num_node": 4
   },
   "ABCI": {
     "group": "[group]",
@@ -26,6 +24,7 @@
         "type": "uniform_float",
         "log": true,
         "step": 0.1,
+        "$base": 10,
         "lower": 0.1,
         "upper": 1.0
       }

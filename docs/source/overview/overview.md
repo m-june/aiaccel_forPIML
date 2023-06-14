@@ -54,6 +54,7 @@ pip install git+https://github.com/aistairc/aiaccel.git
     > ls ./work
     abci_output         alive               hp                  lock
     log                 result              runner              state
+    verification
 
     > cat ./work/result/final_result.result
     ~~~
@@ -74,8 +75,8 @@ pip install git+https://github.com/aistairc/aiaccel.git
 2. config.yamlのresourceをABCIに変更します。
     ```yaml
     resource:
-        type: "abci"
-        num_workers: 4
+        type: "ABCI"
+        num_node: 4
     ```
 
 3. ワークスペースを用意します．ここからの作業は、[ローカル環境で実行する場合](https://github.com/aistairc/aiaccel/blob/main/README_JP.md#%E3%83%AD%E3%83%BC%E3%82%AB%E3%83%AB%E7%92%B0%E5%A2%83%E3%81%A7%E5%AE%9F%E8%A1%8C%E3%81%99%E3%82%8B%E5%A0%B4%E5%90%88)の2および3と同じです。

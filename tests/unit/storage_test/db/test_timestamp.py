@@ -3,14 +3,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from undecorated import undecorated
 
 from aiaccel.storage import Storage
-from tests.unit.storage_test.db.base import get_storage, init, t_base, ws
+from tests.unit.storage_test.db.base import t_base, ws, init
 
 # set_any_trial_start_time
 
 
 @t_base()
 def test_set_any_trial_start_time():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -30,7 +30,7 @@ def test_set_any_trial_start_time():
 
 @t_base()
 def test_set_any_trial_start_time_exception():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -48,7 +48,7 @@ def test_set_any_trial_start_time_exception():
 # set_any_trial_end_time
 @t_base()
 def test_set_any_trial_end_time():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -73,7 +73,7 @@ def test_set_any_trial_end_time():
 # set_any_trial_end_time exception
 @t_base()
 def test_set_any_trial_end_time_exception():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -96,7 +96,7 @@ def test_set_any_trial_end_time_exception():
 
 @t_base()
 def test_set_any_trial_end_time_assersion():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     end_time = "10:00"
@@ -114,7 +114,7 @@ def test_set_any_trial_end_time_assersion():
 
 @t_base()
 def test_get_any_trial_start_time():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -151,7 +151,7 @@ def test_get_any_trial_start_time():
 # get_any_trial_end_time
 @t_base()
 def test_get_any_trial_end_time():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -189,7 +189,7 @@ def test_get_any_trial_end_time():
 
 @t_base()
 def test_all_delete():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -215,7 +215,7 @@ def test_all_delete():
 # all_delete exception
 @t_base()
 def test_all_delete_exception():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -240,7 +240,7 @@ def test_all_delete_exception():
 # delete_any_trial_timestamp
 @t_base()
 def test_delete_any_trial_timestamp():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"
@@ -314,7 +314,7 @@ def test_delete_any_trial_timestamp():
 # delete_any_trial_timestamp excedption
 @t_base()
 def test_delete_any_trial_timestamp_excedption():
-    storage = get_storage()
+    storage = Storage(ws.path)
 
     trial_id = 0
     start_time = "00:00"

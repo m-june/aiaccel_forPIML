@@ -1,10 +1,9 @@
-import numpy as np
-
 from aiaccel.util import aiaccel
+import numpy as np
 
 
 def main(p):
-    x = np.array([p["x1"], p["x2"], float(p["x3"])])
+    x = np.array([p["x1"], p["x2"], p["x3"]])
     y = np.sum(x ** 2)
     return y
 

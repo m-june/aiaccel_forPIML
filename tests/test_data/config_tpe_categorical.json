@@ -1,13 +1,11 @@
 {
   "generic": {
     "workspace": "/tmp/work",
-    "job_command": "python original_main.py",
-    "python_file": "original_main.py",
-    "function": "main"
+    "job_command": "python original_main.py"
   },
   "resource": {
     "type": "local",
-    "num_workers": 10
+    "num_node": 4
   },
   "ABCI": {
     "group": "[group]",

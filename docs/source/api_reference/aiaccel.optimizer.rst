@@ -12,14 +12,6 @@ aiaccel.optimizer.abstract\_optimizer module
    :undoc-members:
    :show-inheritance:
 
-aiaccel.optimizer.budget\_specified\_grid\_optimizer module
------------------------------------------------------------
-
-.. automodule:: aiaccel.optimizer.budget_specified_grid_optimizer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 aiaccel.optimizer.create module
 -------------------------------
 
@@ -32,14 +24,6 @@ aiaccel.optimizer.grid\_optimizer module
 ----------------------------------------
 
 .. automodule:: aiaccel.optimizer.grid_optimizer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-aiaccel.optimizer.motpe\_optimizer module
------------------------------------------
-
-.. automodule:: aiaccel.optimizer.motpe_optimizer
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,0 +1,20 @@
+end_time: 04/19/2023 18:21:44
+parameters:
+- parameter_name: x1
+  type: FLOAT
+  value: -3.294758763127085
+- parameter_name: x2
+  type: FLOAT
+  value: -4.349484070147205
+- parameter_name: x3
+  type: FLOAT
+  value: 4.488855372533333
+- parameter_name: x4
+  type: FLOAT
+  value: 4.656320330745594
+- parameter_name: x5
+  type: FLOAT
+  value: 3.0839734811646107
+result: 81.1154809942297
+start_time: 04/19/2023 18:21:44
+trial_id: 7
