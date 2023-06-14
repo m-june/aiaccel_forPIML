@@ -5,10 +5,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from omegaconf.dictconfig import DictConfig
-
+from aiaccel.common import goal_maximize
+from aiaccel.common import goal_minimize
 from aiaccel.module import AbstractModule
-from aiaccel.util import create_yaml, get_time_now_object, get_time_string_from_object, str_to_logging_level
+from aiaccel.master import MaximizeEvaluator
+from aiaccel.master import MinimizeEvaluator
+from aiaccel.master import AbstractVerification
+from aiaccel.util import str_to_logging_level
+from aiaccel.util import get_time_now_object
+from aiaccel.util import get_time_string_from_object
 
 
 class AbstractMaster(AbstractModule):
@@ -25,29 +30,35 @@ class AbstractMaster(AbstractModule):
         optimizer_proc (subprocess.Popen): A reference for a subprocess of
             Optimizer.
         start_time (datetime.datetime): A stored starting time.
+        verification (AbstractVerification): A verification object.
         logger (logging.Logger): Logger object.
-        goals (list[str]): Goal of optimization ('minimize' or 'maximize').
+        goal (str): Goal of optimization ('minimize' or 'maximize').
         trial_number (int): The number of trials.
         runner_files (list):
         stats (list):
     """
 
-    def __init__(self, config: DictConfig) -> None:
-        super().__init__(config, "master")
+    def __init__(self, options: dict[str, str | int | bool]) -> None:
         self.start_time = get_time_now_object()
         self.loop_start_time: datetime | None = None
-        self.logger = logging.getLogger("root.master")
+        self.options = options
+        self.options['process_name'] = 'master'
+
+        super().__init__(self.options)
+        self.logger = logging.getLogger('root.master')
         self.logger.setLevel(logging.DEBUG)
+
         self.set_logger(
-            "root.master",
-            self.workspace.log / self.config.logger.file.master,
-            str_to_logging_level(self.config.logger.log_level.master),
-            str_to_logging_level(self.config.logger.stream_level.master),
-            "Master   ",
+            'root.master',
+            self.dict_log / self.config.master_logfile.get(),
+            str_to_logging_level(self.config.master_file_log_level.get()),
+            str_to_logging_level(self.config.master_stream_log_level.get()),
+            'Master   '
         )
 
-        self.goals = [item.value for item in self.config.optimize.goal]
-        self.trial_number = self.config.optimize.trial_number
+        self.verification = AbstractVerification(self.options)
+        self.goal = self.config.goal.get()
+        self.trial_number = self.config.trial_number.get()
 
         self.runner_files: list[Path] | None = []
         self.stats: list[Any] = []
@@ -75,9 +86,26 @@ class AbstractMaster(AbstractModule):
         Raises:
             ValueError: Causes when an invalid goal is set.
         """
+        if not self.check_finished():
+            return
 
-        self.evaluate()
-        self.logger.info("Master finished.")
+        evaluator: MaximizeEvaluator | MinimizeEvaluator
+        if self.goal.lower() == goal_maximize:
+            evaluator = MaximizeEvaluator(self.options)
+        elif self.goal.lower() == goal_minimize:
+            evaluator = MinimizeEvaluator(self.options)
+        else:
+            self.logger.error(f'Invalid goal: {self.goal}.')
+            raise ValueError(f'Invalid goal: {self.goal}.')
+
+        evaluator.evaluate()
+        evaluator.print()
+        evaluator.save()
+
+        # verification
+        self.verification.verify()
+        self.verification.save('final')
+        self.logger.info('Master finished.')
 
     def print_dict_state(self) -> None:
         """Display the number of yaml files in 'ready', 'running', and
@@ -89,23 +117,23 @@ class AbstractMaster(AbstractModule):
         now = get_time_now_object()
 
         if self.loop_start_time is None:
-            end_estimated_time = "Unknown"
+            end_estimated_time = 'Unknown'
         else:
             looping_time = now - self.loop_start_time
 
             if self.hp_finished != 0:
-                one_loop_time = looping_time / self.hp_finished
+                one_loop_time = (looping_time / self.hp_finished)
                 hp_finished = self.hp_finished
-                finishing_time = now + (self.trial_number - hp_finished) * one_loop_time
+                finishing_time = (now + (self.trial_number - hp_finished) * one_loop_time)
                 end_estimated_time = get_time_string_from_object(finishing_time)
             else:
-                end_estimated_time = "Unknown"
+                end_estimated_time = 'Unknown'
 
         self.logger.info(
-            f"{self.hp_finished}/{self.trial_number} finished, "
-            f"ready: {self.hp_ready} ,"
-            f"running: {self.hp_running}, "
-            f"end estimated time: {end_estimated_time}"
+            f'{self.hp_finished}/{self.trial_number} finished, '
+            f'ready: {self.hp_ready} ,'
+            f'running: {self.hp_running}, '
+            f'end estimated time: {end_estimated_time}'
         )
 
     def inner_loop_main_process(self) -> bool:
@@ -114,13 +142,15 @@ class AbstractMaster(AbstractModule):
         Returns:
             bool: The process succeeds or not. The main loop exits if failed.
         """
-        self.update_each_state_count()
+        self.get_each_state_count()
 
         if self.hp_finished >= self.trial_number:
             return False
 
         self.get_stats()
         self.print_dict_state()
+        # verification
+        self.verification.verify()
 
         return True
 
@@ -133,7 +163,7 @@ class AbstractMaster(AbstractModule):
         return None
 
     def check_error(self) -> bool:
-        """Check to confirm if an error has occurred.
+        """ Check to confirm if an error has occurred.
 
         Args:
             None
@@ -142,25 +172,3 @@ class AbstractMaster(AbstractModule):
             bool: True if no error. False if with error.
         """
         return True
-
-    def evaluate(self) -> None:
-        """Evaluate the result of optimization.
-
-        Returns:
-            None
-        """
-
-        best_trial_ids, _ = self.storage.get_best_trial(self.goals)
-        if best_trial_ids is None:
-            self.logger.error(f"Failed to output {self.workspace.final_result_file}.")
-            return
-
-        hp_results = []
-
-        for best_trial_id in best_trial_ids:
-            hp_results.append(self.storage.get_hp_dict(best_trial_id))
-
-        self.logger.info("Best hyperparameter is followings:")
-        self.logger.info(hp_results)
-
-        create_yaml(self.workspace.final_result_file, hp_results, self.workspace.lock)

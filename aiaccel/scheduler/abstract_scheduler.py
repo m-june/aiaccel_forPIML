@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from omegaconf.dictconfig import DictConfig
-
+from aiaccel.common import dict_result
 from aiaccel.module import AbstractModule
-from aiaccel.scheduler.algorithm import RandomSampling
-from aiaccel.scheduler.job.job import Job
-from aiaccel.scheduler.job.model.local_model import LocalModel
+from aiaccel.scheduler import RandomSampling
+from aiaccel.scheduler import LocalModel
+from aiaccel.scheduler import Job
 from aiaccel.util import str_to_logging_level
+from aiaccel.util import create_yaml
 
 
 class AbstractScheduler(AbstractModule):
@@ -21,7 +22,8 @@ class AbstractScheduler(AbstractModule):
     Attributes:
         options (dict[str, str | int | bool]): A dictionary containing
             command line options.
-        algorithm (RandomSamplingSchedulingAlgorithm): A scheduling algorithm
+        config_path (Path): Path to the configuration file.
+        algorithm (RandomSampling): A scheduling algorithm
             to select hyper parameters from a parameter pool.
         available_resource (int): An available current resource number.
         jobs (list[dict]): A list to store job dictionaries.
@@ -30,23 +32,28 @@ class AbstractScheduler(AbstractModule):
             command or qstat command.
     """
 
-    def __init__(self, config: DictConfig) -> None:
-        super().__init__(config, "scheduler")
+    def __init__(self, options: dict[str, Any]) -> None:
+        self.options = options
+        self.options['process_name'] = 'scheduler'
+        super().__init__(self.options)
+
+        self.config_path = Path(self.options['config']).resolve()
+
         self.set_logger(
-            "root.scheduler",
-            self.workspace.log / self.config.logger.file.scheduler,
-            str_to_logging_level(self.config.logger.log_level.scheduler),
-            str_to_logging_level(self.config.logger.stream_level.scheduler),
-            "Scheduler",
+            'root.scheduler',
+            self.dict_log / self.config.scheduler_logfile.get(),
+            str_to_logging_level(self.config.scheduler_file_log_level.get()),
+            str_to_logging_level(self.config.scheduler_stream_log_level.get()),
+            'Scheduler'
         )
 
-        self.max_resource = self.config.resource.num_workers
+        self.max_resource = self.config.num_node.get()
         self.available_resource = self.max_resource
         self.stats: list[Any] = []
         self.jobs: list[Any] = []
         self.job_status: dict[Any, Any] = {}
         self.algorithm: Any = None
-        self.num_workers = self.config.resource.num_workers
+        self.num_node = self.config.num_node.get()
 
     def change_state_finished_trials(self) -> None:
         """Create finished hyper parameter files if result files can be found
@@ -63,7 +70,7 @@ class AbstractScheduler(AbstractModule):
 
         for running in runnings:
             if running in result_names:
-                self.storage.trial.set_any_trial_state(trial_id=running, state="finished")
+                self.storage.trial.set_any_trial_state(trial_id=running, state='finished')
 
     def get_stats(self) -> None:
         """Updates the number of files in hp(hyper parameter) directories.
@@ -71,7 +78,7 @@ class AbstractScheduler(AbstractModule):
         Returns:
             None
         """
-        self.update_each_state_count()
+        self.get_each_state_count()
 
     def start_job(self, trial_id: int) -> Any:
         """Start a new job.
@@ -91,7 +98,7 @@ class AbstractScheduler(AbstractModule):
             job.main()
             return job
         else:
-            self.logger.error(f"Specified trial {trial_id} is already running ")
+            self.logger.error(f'Specified trial {trial_id} is already running ')
             return None
 
     def update_resource(self) -> None:
@@ -101,17 +108,23 @@ class AbstractScheduler(AbstractModule):
             None
         """
         state_names = [
-            "Init",
-            "RunnerReady",
-            "RunnerChecking",
-            "RunnerConfirmed",
-            "RunnerFailed",
-            "RunnerFailure",
-            "Scheduling",
+            'Init',
+            'RunnerReady',
+            'RunnerChecking',
+            'RunnerConfirmed',
+            'RunnerFailed',
+            'RunnerFailure',
+            'Scheduling'
         ]
 
-        succeed_jobs = [job for job in self.jobs if job.get_state_name() == "Success"]
-        ready_jobs = [job for job in self.jobs if job.get_state_name() in state_names]
+        succeed_jobs = [
+            job for job in self.jobs
+            if job.get_state_name() == 'Success'
+        ]
+        ready_jobs = [
+            job for job in self.jobs
+            if job.get_state_name() in state_names
+        ]
         num_running_jobs = len(self.jobs) - len(ready_jobs) - len(succeed_jobs)
         self.available_resource = max(0, self.max_resource - num_running_jobs)
 
@@ -121,7 +134,7 @@ class AbstractScheduler(AbstractModule):
         Returns:
             None
         """
-        self.write_random_seed_to_debug_log()
+        self.create_numpy_random_generator()
         self.resume()
 
         self.algorithm = RandomSampling(self.config)
@@ -130,9 +143,9 @@ class AbstractScheduler(AbstractModule):
         runnings = self.storage.trial.get_running()
         for running in runnings:
             job = self.start_job(running)
-            self.logger.info(f"restart hp files in previous running directory: {running}")
+            self.logger.info(f'restart hp files in previous running directory: {running}')
 
-            while job.get_state_name() != "Scheduling":
+            while job.get_state_name() != 'Scheduling':
                 job.main()
             job.schedule()
 
@@ -142,7 +155,7 @@ class AbstractScheduler(AbstractModule):
         Returns:
             None
         """
-        self.logger.info("Scheduler finished.")
+        self.logger.info('Scheduler finished.')
 
     def inner_loop_main_process(self) -> bool:
         """A main loop process. This process is repeated every main loop.
@@ -160,22 +173,28 @@ class AbstractScheduler(AbstractModule):
 
         # find a new hp
         for ready in readies:
-            if ready not in [job.trial_id for job in self.jobs]:
+            if (ready not in [job.trial_id for job in self.jobs]):
                 self.start_job(ready)
 
         scheduled_candidates = []
         for job in self.jobs:
-            if job.get_state_name() == "Scheduling":
+            if job.get_state_name() == 'Scheduling':
                 scheduled_candidates.append(job)
 
-        selected_jobs = self.algorithm.select_hp(scheduled_candidates, self.available_resource, rng=self._rng)
+        selected_jobs = self.algorithm.select_hp(
+            scheduled_candidates,
+            self.available_resource,
+            rng=self._rng
+        )
 
         if len(selected_jobs) > 0:
             for job in selected_jobs:
-                if job.get_state_name() == "Scheduling":
+                if job.get_state_name() == 'Scheduling':
                     self._serialize(job.trial_id)
                     job.schedule()
-                    self.logger.debug(f"trial id: {job.trial_id} has been scheduled.")
+                    self.logger.debug(
+                        f"trial id: {job.trial_id} has been scheduled."
+                    )
                     selected_jobs.remove(job)
 
         for job in self.jobs:
@@ -202,11 +221,15 @@ class AbstractScheduler(AbstractModule):
         pass
 
     def check_error(self) -> bool:
+
         # Check state machin
         jobstates = self.storage.jobstate.get_all_trial_jobstate()
         for trial_id in self.job_status.keys():
             for jobstate in jobstates:
-                if jobstate["trial_id"] == trial_id and "failure" in jobstate["jobstate"].lower():
+                if (
+                    jobstate['trial_id'] == trial_id and
+                    "failure" in jobstate['jobstate'].lower()
+                ):
                     self.logger.info(
                         f"Job: {trial_id} is Failed.({self.job_status[trial_id]})\n"
                         f"This is a fatal internal error. "
@@ -227,14 +250,14 @@ class AbstractScheduler(AbstractModule):
 
     def all_done(self) -> bool:
         done_states = [
-            "Success",
-            "HpCancelFailure",
-            "KillFailure",
-            "HpExpiredFailure",
-            "HpFinishedFailure",
-            "JobFailure",
-            "HpRunningFailure",
-            "RunnerFailure",
+            'Success',
+            'HpCancelFailure',
+            'KillFailure',
+            'HpExpiredFailure',
+            'HpFinishedFailure',
+            'JobFailure',
+            'HpRunningFailure',
+            'RunnerFailure'
         ]
 
         jobstates = self.storage.jobstate.get_all_trial_jobstate()
@@ -243,10 +266,10 @@ class AbstractScheduler(AbstractModule):
         for s in done_states:
             num_trials += jobstates.count(s)
 
-        return num_trials >= self.config.optimize.trial_number
+        return (num_trials >= self.config.trial_number.get())
 
     def resume(self) -> None:
-        """When in resume mode, load the previous optimization data in advance.
+        """ When in resume mode, load the previous optimization data in advance.
 
         Args:
             None
@@ -254,12 +277,43 @@ class AbstractScheduler(AbstractModule):
         Returns:
             None
         """
-        if self.config.resume is not None and self.config.resume > 0:
-            self._deserialize(self.config.resume)
+        if (
+            self.options['resume'] is not None and
+            self.options['resume'] > 0
+        ):
+            self._deserialize(self.options['resume'])
+
+    def create_result_file(self, trial_id: int) -> None:
+        """ Save the results in yaml format.
+
+        Args:
+            trial_id (int): Any trial od
+
+        Returns:
+            None
+        """
+
+        file_hp_count_fmt = f'%0{self.config.name_length.get()}d'
+        file_name = file_hp_count_fmt % trial_id + '.hp'
+
+        content = self.storage.get_hp_dict(trial_id)
+        result = self.storage.result.get_any_trial_objective(trial_id=trial_id)
+        error = self.storage.error.get_any_trial_error(trial_id=trial_id)
+
+        content['result'] = result
+
+        if error is not None:
+            content['error'] = error
+
+        for i in range(len(content['parameters'])):
+            content['parameters'][i]['value'] = content['parameters'][i]['value']
+
+        result_file_path = self.ws / dict_result / file_name
+        create_yaml(result_file_path, content)
 
     def __getstate__(self) -> dict[str, Any]:
         obj = super().__getstate__()
-        del obj["jobs"]
+        del obj['jobs']
         return obj
 
     def create_model(self) -> Any:
